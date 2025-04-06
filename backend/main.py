@@ -17,16 +17,17 @@ from webdriver_manager.chrome import ChromeDriverManager
 from flask_cors import CORS
 
 
-LOG_FILE = "scraped_data.txt"
+LOG_FILE = "summary.txt"
+FINAL_FILE = "final.txt"
 
-def save_to_file(text: str):
+def save_to_file(text: str, file=LOG_FILE):
     """Append text to a file."""
-    with open(LOG_FILE, "a", encoding="utf-8") as f:
+    with open(file, "a", encoding="utf-8") as f:
         f.write(text + "\n")
 
-def clear_file():
+def clear_file(file = LOG_FILE):
     """Clear the content of the file."""
-    open(LOG_FILE, "w", encoding="utf-8").close()
+    open(file, "w", encoding="utf-8").close()
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -138,16 +139,92 @@ def scrape_news(news_list):
     return scraped_data
 """
 
-def dummy_summarize(article):
-    # common container names like "content" nahi toh "all"
-    text = article["content"] +"\n***********\n"+ article["all"]
-    sentences = sent_tokenize(text)
-    summary = " ".join(sentences[:5])
-    return summary
 
-@app.route('/summarize', methods=['POST'])
+def dummy_summarize(article, query):
+    """Prepare prompt and call Gemma model for summarization."""
+    text = article["content"] + "\n***********\n" + article["all"]
+    prompt = (
+        f"From the given scraped text from a news source, identify the main news content (ignore website things like cookies or subscription related content as they are irrelevant) and return all the key info in terms of bullet points (nothing else apart from bullent point in response and ensure a word limit of 200-250) And don't ask user for anything else\n"
+        + f"If the content in website in not related to the query: {query}, then just return no info\n"
+        + text
+    )
+    return call_gemma(prompt)
+    
+    
+def call_gemma(prompt: str):
+    """Send a prompt to the Gemma model via Ollama and return the response."""
+    payload = {
+        "model": MODEL_NAME,
+        "prompt": prompt,
+        "stream": False
+    }
+
+    try:
+        response = requests.post(OLLAMA_URL, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        return result.get("response", "")
+    except Exception as e:
+        print(f"Error calling Gemma via Ollama: {e}")
+        return "Error in model response."
+
+
+OLLAMA_URL = "http://127.0.0.1:11434/api/generate"  # Default Ollama endpoint
+MODEL_NAME = "gemma3"
+
+# @app.route('/summary_individual', methods=['POST'])
+# def ask_ollama():
+#     data = request.get_json()
+
+#     prompt = data.get('prompt')
+#     if not prompt:
+#         return jsonify({"error": "No prompt provided"}), 400
+
+#     # Request payload for Ollama
+#     payload = {
+#         "model": MODEL_NAME,
+#         "prompt": prompt,
+#         "stream": False  # Set to True if you want streaming
+#     }
+
+#     try:
+#         response = requests.post(OLLAMA_URL, json=payload)
+#         response.raise_for_status()
+#         result = response.json()
+#         print(result)
+#         return jsonify({"response": result.get("response", "")})
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
+
+@app.route('/final_summary', methods=['POST'])
+def summarize_file_with_gemma(file_path=LOG_FILE):
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+
+        prompt = (
+            "Your task is to read key info from various news channels and return Common info present in all news channels and also highlight unqiue info from each news channel separately :\n\n"
+            + content
+        )
+        print(prompt)
+
+        summary = call_gemma(prompt)
+        if summary.strip():
+            clear_file(FINAL_FILE)
+            save_to_file(summary, FINAL_FILE)
+
+        return jsonify({"summary": summary})
+
+    except FileNotFoundError:
+        return jsonify({"error": "File not found. Please check the path."}), 404
+    except Exception as e:
+        return jsonify({"error": f"Error reading or summarizing file: {str(e)}"}), 500
+
+
+
+@app.route('/summary_individual', methods=['POST'])
 def summarize_endpoint():
-
+    clear_file()
     data = request.get_json()
     #expect json argument with a "query" key.
     query = data.get("query")
@@ -168,7 +245,8 @@ def summarize_endpoint():
     #dummy summarization.
     summaries = []
     for article in articles:
-        summary_text = dummy_summarize(article)
+        summary_text = dummy_summarize(article, query)
+        save_to_file("Source: " + article["source"]+"\n"+summary_text+"\n", LOG_FILE)
         row = {
             "source": article["source"],
             "final_url": article["final_url"],
