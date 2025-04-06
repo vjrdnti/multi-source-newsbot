@@ -31,7 +31,7 @@ async function sendMessage() {
     const summaries = await response.json();
     let combinedSummary = "";
     summaries.forEach(article => {
-      combinedSummary += `Source: ${article.source}\nURL: ${article.final_url}\nSummary: ${article.summary}\n\n`;
+      combinedSummary += `Source: ${article.source}\nSummary: ${article.summary}\n\n`;
     });
     appendMessage("bot", combinedSummary);
   } catch (error) {
