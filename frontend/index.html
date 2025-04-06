@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Da interface</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <header>Chats</header>
+    <button class="new-chat" id="newChatBtn">+ New Chat</button>
+    <ul class="chat-list" id="chatList">
+      <!-- Previous chats can be appended here -->
+      <li>Chat 1</li>
+      <li>Chat 2</li>
+    </ul>
+  </div>
+
+  <!-- Main Chat Container -->
+  <div class="chat-container">
+    <div class="chat-history" id="chatHistory">
+      <!-- Chat messages will appear here -->
+    </div>
+    <div class="chat-input">
+      <input type="text" id="userInput" placeholder="Type your news query..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+  <script src="bot-frontend.js"></script>
+</body>
+</html>
+
