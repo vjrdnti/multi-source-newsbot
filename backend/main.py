@@ -77,6 +77,8 @@ def scrape_news(news_list):
     driver = webdriver.Chrome(options=chrome_options)
     scraped_data = []
     for news in news_list:
+	if len(scraped_data)==3:
+	    break
         parts = news['title'].split(' - ')
         source = parts[1] if len(parts) > 1 else news['title'] #if no '-' use the full title.
         url = news["link"]
